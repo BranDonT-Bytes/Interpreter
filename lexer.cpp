@@ -109,3 +109,127 @@ private:
         return source[current + 1];
     }
 
+    void scanToken() {
+        char c = advance();
+        switch (c) {
+            // Single-character tokens
+            case '(': addToken(TokenType::LEFT_PAREN); break;
+            case ')': addToken(TokenType::RIGHT_PAREN); break;
+            case '{': addToken(TokenType::LEFT_BRACE); break;
+            case '}': addToken(TokenType::RIGHT_BRACE); break;
+            case ',': addToken(TokenType::COMMA); break;
+            case '.': addToken(TokenType::DOT); break;
+            case '-': addToken(TokenType::MINUS); break;
+            case '+': addToken(TokenType::PLUS); break;
+            case ';': addToken(TokenType::SEMICOLON); break;
+            case '*': addToken(TokenType::STAR); break;
+
+
+            case '!':
+                addToken(match('=') ? TokenType::BANG_EQUAL : TokenType::BANG);
+                break;
+            case '=':
+                addToken(match('=') ? TokenType::EQUAL_EQUAL : TokenType::EQUAL);
+                break;
+            case '<':
+                addToken(match('=') ? TokenType::LESS_EQUAL : TokenType::LESS);
+                break;
+            case '>':
+                addToken(match('=') ? TokenType::GREATER_EQUAL : TokenType::GREATER);
+                break;
+
+            case '/':
+                if (match('/')) {
+
+                    while (peek() != '\n' && !isAtEnd()) advance();
+                } else {
+                    addToken(TokenType::SLASH);
+                }
+                break;
+
+            case '"': stringLiteral(); break;
+
+            case ' ':
+            case '\r':
+            case '\t':
+                break;
+            case '\n':
+                line++;
+                break;
+
+            default:
+                if (isdigit(c)) {
+                    number();
+                } else if (isalpha(c) || c == '_') {
+                    identifier();
+                } else {
+                    cerr << "Unexpected character '" << c << "' at line " << line << endl;
+                }
+                break;
+        }
+    }
+
+    void stringLiteral() {
+        while (peek() != '"' && !isAtEnd()) {
+            if (peek() == '\n') line++;
+            advance();
+        }
+
+        if (isAtEnd()) {
+            cerr << "Unterminated string at line " << line << endl;
+            return;
+        }
+
+        advance();
+
+
+        string value = source.substr(start + 1, current - start - 2);
+        tokens.emplace_back(TokenType::STRING, value, line);
+    }
+
+    void number() {
+        while (isdigit(peek())) advance();
+
+        // Fractional part
+        if (peek() == '.' && isdigit(peekNext())) {
+            advance(); // consume '.'
+            while (isdigit(peek())) advance();
+        }
+
+        addToken(TokenType::NUMBER);
+    }
+
+
+    void identifier() {
+        while (isalnum(peek()) || peek() == '_') advance();
+
+        string text = source.substr(start, current - start);
+        auto keywordIt = keywords.find(text);
+        TokenType type = (keywordIt != keywords.end()) ? keywordIt->second : TokenType::IDENTIFIER;
+        tokens.emplace_back(type, text, line);
+    }
+};
+
+
+int main() {
+    string code = R"(
+        let username = "Alice";
+        let count = 42.5;
+        if (count >= 10) {
+            print username;
+        } else {
+            print "small";
+        }
+        // this is a comment
+    )";
+
+    Lexer lexer(code);
+    vector<Token> tokens = lexer.scanTokens();
+
+    for (const auto& token : tokens) {
+        cout << "Token(" << static_cast<int>(token.type)
+             << ", \"" << token.lexeme << "\", line " << token.line << ")\n";
+    }
+
+    return 0;
+}
